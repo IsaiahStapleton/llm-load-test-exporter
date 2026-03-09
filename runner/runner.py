@@ -134,6 +134,20 @@ def run_load_test(cfg: dict) -> None:
         os.unlink(config_path)
 
 
+def _remove_stale_files(active_files: set[str]) -> None:
+    """Remove result files that don't correspond to any active model."""
+    if not os.path.isdir(OUTPUT_DIR):
+        return
+    for filename in os.listdir(OUTPUT_DIR):
+        if filename.endswith(".json") and filename not in active_files:
+            filepath = os.path.join(OUTPUT_DIR, filename)
+            try:
+                os.remove(filepath)
+                LOG.info("Removed stale result file: %s", filename)
+            except OSError as exc:
+                LOG.warning("Could not remove stale file %s: %s", filename, exc)
+
+
 def discover_and_test_models() -> None:
     """Discover KServe InferenceService models and run load tests."""
     try:
@@ -143,6 +157,8 @@ def discover_and_test_models() -> None:
     except Exception as exc:
         LOG.error("Failed to list model pods: %s", exc)
         return
+
+    active_files: set[str] = set()
 
     for pod in model_pods.items:
         model_name = pod.metadata.labels.get(
@@ -158,6 +174,8 @@ def discover_and_test_models() -> None:
                 namespace, model_name, pod.status.phase, gather,
             )
             continue
+
+        active_files.add(f"{model_name}_{namespace}.json")
 
         # Check if token auth is required
         annotations = pod.metadata.annotations or {}
@@ -176,6 +194,8 @@ def discover_and_test_models() -> None:
 
         LOG.info("Completed load test for model %s in namespace %s",
                  model_name, namespace)
+
+    _remove_stale_files(active_files)
 
 
 def main() -> None:
