@@ -7,6 +7,10 @@ rules:
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["list"]
+  # list services to discover predictor endpoints (name, port, protocol)
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["list"]
   # read auth tokens from model service-account secrets in any namespace
   - apiGroups: [""]
     resources: ["secrets"]

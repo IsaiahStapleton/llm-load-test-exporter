@@ -94,6 +94,53 @@ def get_auth_token(model_name: str, namespace: str) -> str | None:
         return None
 
 
+def _discover_service_url(model_name: str, namespace: str) -> str | None:
+    """Discover the internal service URL for a KServe InferenceService.
+
+    Looks up Services labelled with serving.kserve.io/inferenceservice and
+    picks the predictor service, returning a fully-qualified cluster URL
+    with the correct protocol and port.
+    """
+    try:
+        services = v1.list_namespaced_service(
+            namespace,
+            label_selector=f"serving.kserve.io/inferenceservice={model_name}",
+        )
+    except Exception as exc:
+        LOG.warning("Could not list services for %s/%s: %s",
+                    namespace, model_name, exc)
+        return None
+
+    predictor_svc = None
+    for svc in services.items:
+        name = svc.metadata.name
+        if name.endswith("-predictor"):
+            predictor_svc = svc
+            break
+    if predictor_svc is None:
+        for svc in services.items:
+            if not svc.metadata.name.endswith("-metrics"):
+                predictor_svc = svc
+                break
+    if predictor_svc is None or not predictor_svc.spec.ports:
+        return None
+
+    svc_name = predictor_svc.metadata.name
+    port_obj = predictor_svc.spec.ports[0]
+    port = port_obj.port
+    port_name = (port_obj.name or "").lower()
+
+    if port in (443, 8443) or "https" in port_name or "tls" in port_name:
+        protocol = "https"
+    else:
+        protocol = "http"
+
+    host = f"{svc_name}.{namespace}.svc.cluster.local"
+    if (protocol == "https" and port == 443) or (protocol == "http" and port == 80):
+        return f"{protocol}://{host}"
+    return f"{protocol}://{host}:{port}"
+
+
 def run_load_test(cfg: dict) -> None:
     """Write a temporary config and invoke the ``load-test`` CLI."""
     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -184,10 +231,14 @@ def discover_and_test_models() -> None:
         )
         auth_token = get_auth_token(model_name, namespace) if enable_auth else None
 
-        host_url = f"https://{model_name}.{namespace}.svc.cluster.local"
+        host_url = _discover_service_url(model_name, namespace)
+        if host_url is None:
+            host_url = f"https://{model_name}.{namespace}.svc.cluster.local"
+            LOG.warning("No predictor service found for %s/%s, falling back to %s",
+                        namespace, model_name, host_url)
 
-        LOG.info("Running load test for model %s in namespace %s",
-                 model_name, namespace)
+        LOG.info("Running load test for model %s in namespace %s (url=%s)",
+                 model_name, namespace, host_url)
 
         cfg = build_config(model_name, host_url, namespace, auth_token)
         run_load_test(cfg)
