@@ -4,31 +4,43 @@ Prometheus metrics exporter for [llm-load-test](https://github.com/openshift-psa
 
 ## Architecture
 
-The application runs as a Kubernetes Deployment with two containers sharing an `emptyDir` volume:
+The application runs as an OpenShift Deployment with two containers sharing an `emptyDir` volume:
 
 | Container | Purpose |
 |-----------|---------|
 | **runner** | Discovers models via the Kubernetes API, runs `llm-load-test` against each, writes JSON results to the shared volume |
 | **exporter** | Reads the JSON results and serves Prometheus metrics on `/metrics` (port 8080) |
 
-`llm-load-test` is installed as a **pip dependency** from the [upstream repository](https://github.com/openshift-psap/llm-load-test) — no vendored copy.
+`llm-load-test` is installed as a **pip dependency** from the [upstream repository](https://github.com/openshift-psap/llm-load-test)
 
 ## Metrics Exposed
 
+All metrics carry `model` and `namespace` labels.
+
+### Timing Metrics
+
+Each timing metric is exported with mean and P80/P90/P95/P99 percentiles:
+
+| Metric prefix | Description |
+|---------------|-------------|
+| `llm_load_test_tpot_*_ms` | Time Per Output Token — time to generate each successive token |
+| `llm_load_test_ttft_*_ms` | Time to First Token — latency before the first token is emitted |
+| `llm_load_test_itl_*_ms` | Inter-Token Latency — time between consecutive output tokens |
+| `llm_load_test_response_time_*_ms` | Response Time — end-to-end request latency |
+| `llm_load_test_tt_ack_*_ms` | Time to Acknowledge — time to server's first HTTP acknowledgement |
+
+Each prefix expands to 5 metrics with suffixes: `_mean_ms`, `_p80_ms`, `_p90_ms`, `_p95_ms`, `_p99_ms` (25 metrics total).
+
+### Throughput, Request, and Token Metrics
+
 | Metric | Description |
 |--------|-------------|
-| `llm_load_test_tpot_mean_ms` | Mean Time Per Output Token (ms) |
-| `llm_load_test_ttft_mean_ms` | Mean Time to First Token (ms) |
-| `llm_load_test_itl_mean_ms` | Mean Inter-Token Latency (ms) |
-| `llm_load_test_response_time_mean_ms` | Mean Response Time (ms) |
-| `llm_load_test_tpot_p95_ms` | P95 Time Per Output Token (ms) |
-| `llm_load_test_ttft_p95_ms` | P95 Time to First Token (ms) |
-| `llm_load_test_response_time_p95_ms` | P95 Response Time (ms) |
-| `llm_load_test_throughput_tokens_per_sec` | Throughput (tokens/sec) |
-| `llm_load_test_total_requests` | Total requests in the load test run |
+| `llm_load_test_throughput_tokens_per_sec` | Output tokens generated per second |
+| `llm_load_test_total_requests` | Total requests sent in the load test run |
+| `llm_load_test_total_failures` | Number of failed requests |
 | `llm_load_test_failure_rate_percent` | Percentage of failed requests |
-
-All metrics carry `model` and `namespace` labels.
+| `llm_load_test_input_tokens_mean` | Mean input (prompt) tokens per request |
+| `llm_load_test_output_tokens_mean` | Mean output (generated) tokens per request |
 
 ## Prerequisites
 
@@ -98,14 +110,95 @@ llm-load-test-exporter/
 ```
 # HELP llm_load_test_tpot_mean_ms Mean Time Per Output Token (ms)
 # TYPE llm_load_test_tpot_mean_ms gauge
-llm_load_test_tpot_mean_ms{model="granite",namespace="granite-instruct"} 15.718
+llm_load_test_tpot_mean_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 8.028828125373279
+# HELP llm_load_test_tpot_p80_ms P80 Time Per Output Token (ms)
+# TYPE llm_load_test_tpot_p80_ms gauge
+llm_load_test_tpot_p80_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 7.968595240910668
+# HELP llm_load_test_tpot_p90_ms P90 Time Per Output Token (ms)
+# TYPE llm_load_test_tpot_p90_ms gauge
+llm_load_test_tpot_p90_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 10.094975246521487
+# HELP llm_load_test_tpot_p95_ms P95 Time Per Output Token (ms)
+# TYPE llm_load_test_tpot_p95_ms gauge
+llm_load_test_tpot_p95_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 12.339521228152398
+# HELP llm_load_test_tpot_p99_ms P99 Time Per Output Token (ms)
+# TYPE llm_load_test_tpot_p99_ms gauge
+llm_load_test_tpot_p99_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 15.945512777856603
 # HELP llm_load_test_ttft_mean_ms Mean Time to First Token (ms)
 # TYPE llm_load_test_ttft_mean_ms gauge
-llm_load_test_ttft_mean_ms{model="granite",namespace="granite-instruct"} 268.87
+llm_load_test_ttft_mean_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 128.11345687279334
+# HELP llm_load_test_ttft_p80_ms P80 Time to First Token (ms)
+# TYPE llm_load_test_ttft_p80_ms gauge
+llm_load_test_ttft_p80_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 144.19751167297363
+# HELP llm_load_test_ttft_p90_ms P90 Time to First Token (ms)
+# TYPE llm_load_test_ttft_p90_ms gauge
+llm_load_test_ttft_p90_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 186.4311218261719
+# HELP llm_load_test_ttft_p95_ms P95 Time to First Token (ms)
+# TYPE llm_load_test_ttft_p95_ms gauge
+llm_load_test_ttft_p95_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 279.4327616691586
+# HELP llm_load_test_ttft_p99_ms P99 Time to First Token (ms)
+# TYPE llm_load_test_ttft_p99_ms gauge
+llm_load_test_ttft_p99_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 823.1433725357049
+# HELP llm_load_test_itl_mean_ms Mean Inter-Token Latency (ms)
+# TYPE llm_load_test_itl_mean_ms gauge
+llm_load_test_itl_mean_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 7.063575863406763
+# HELP llm_load_test_itl_p80_ms P80 Inter-Token Latency (ms)
+# TYPE llm_load_test_itl_p80_ms gauge
+llm_load_test_itl_p80_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 7.0560087916362715
+# HELP llm_load_test_itl_p90_ms P90 Inter-Token Latency (ms)
+# TYPE llm_load_test_itl_p90_ms gauge
+llm_load_test_itl_p90_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 8.609594476039927
+# HELP llm_load_test_itl_p95_ms P95 Inter-Token Latency (ms)
+# TYPE llm_load_test_itl_p95_ms gauge
+llm_load_test_itl_p95_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 10.022274727059886
+# HELP llm_load_test_itl_p99_ms P99 Inter-Token Latency (ms)
+# TYPE llm_load_test_itl_p99_ms gauge
+llm_load_test_itl_p99_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 10.63403127785016
+# HELP llm_load_test_response_time_mean_ms Mean Response Time (ms)
+# TYPE llm_load_test_response_time_mean_ms gauge
+llm_load_test_response_time_mean_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 1031.7217386685884
+# HELP llm_load_test_response_time_p80_ms P80 Response Time (ms)
+# TYPE llm_load_test_response_time_p80_ms gauge
+llm_load_test_response_time_p80_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 1153.2029628753662
+# HELP llm_load_test_response_time_p90_ms P90 Response Time (ms)
+# TYPE llm_load_test_response_time_p90_ms gauge
+llm_load_test_response_time_p90_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 1322.1412181854248
+# HELP llm_load_test_response_time_p95_ms P95 Response Time (ms)
+# TYPE llm_load_test_response_time_p95_ms gauge
+llm_load_test_response_time_p95_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 1456.7198753356931
+# HELP llm_load_test_response_time_p99_ms P99 Response Time (ms)
+# TYPE llm_load_test_response_time_p99_ms gauge
+llm_load_test_response_time_p99_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 2335.965375900268
+# HELP llm_load_test_tt_ack_mean_ms Mean Time to Acknowledge (ms)
+# TYPE llm_load_test_tt_ack_mean_ms gauge
+llm_load_test_tt_ack_mean_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 128.07771976177509
+# HELP llm_load_test_tt_ack_p80_ms P80 Time to Acknowledge (ms)
+# TYPE llm_load_test_tt_ack_p80_ms gauge
+llm_load_test_tt_ack_p80_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 144.17171478271484
+# HELP llm_load_test_tt_ack_p90_ms P90 Time to Acknowledge (ms)
+# TYPE llm_load_test_tt_ack_p90_ms gauge
+llm_load_test_tt_ack_p90_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 186.40327453613284
+# HELP llm_load_test_tt_ack_p95_ms P95 Time to Acknowledge (ms)
+# TYPE llm_load_test_tt_ack_p95_ms gauge
+llm_load_test_tt_ack_p95_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 279.3550610542294
+# HELP llm_load_test_tt_ack_p99_ms P99 Time to Acknowledge (ms)
+# TYPE llm_load_test_tt_ack_p99_ms gauge
+llm_load_test_tt_ack_p99_ms{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 823.0641603469842
 # HELP llm_load_test_throughput_tokens_per_sec Throughput (tokens/sec)
 # TYPE llm_load_test_throughput_tokens_per_sec gauge
-llm_load_test_throughput_tokens_per_sec{model="granite",namespace="granite-instruct"} 18.804
+llm_load_test_throughput_tokens_per_sec{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 559.7666666666667
+# HELP llm_load_test_total_requests Total requests in the load test run
+# TYPE llm_load_test_total_requests gauge
+llm_load_test_total_requests{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 130.0
+# HELP llm_load_test_total_failures Total failed requests
+# TYPE llm_load_test_total_failures gauge
+llm_load_test_total_failures{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 0.0
 # HELP llm_load_test_failure_rate_percent Percentage of failed requests
 # TYPE llm_load_test_failure_rate_percent gauge
-llm_load_test_failure_rate_percent{model="granite",namespace="granite-instruct"} 0.0
+llm_load_test_failure_rate_percent{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 0.0
+# HELP llm_load_test_input_tokens_mean Mean input tokens per request
+# TYPE llm_load_test_input_tokens_mean gauge
+llm_load_test_input_tokens_mean{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 189.47692307692307
+# HELP llm_load_test_output_tokens_mean Mean output tokens per request
+# TYPE llm_load_test_output_tokens_mean gauge
+llm_load_test_output_tokens_mean{model="granite-31-2b-v100",namespace="ai-performance-profiling"} 129.1769230769231
 ```
