@@ -17,4 +17,7 @@ configMapGenerator:
     options:
       disableNameSuffixHash: true
     files:
-    - files/uwl_metrics_list.yaml
+      - files/uwl_metrics_list.yaml
+  - name: llm-load-test-config
+    envs:
+      - files/llm-load-test-config.env

@@ -22,9 +22,9 @@ spec:
           volumeMounts:
             - name: shared-data
               mountPath: /shared_data
-          env:
-            - name: OUTPUT_DIR
-              value: "/shared_data/output"
+          envFrom:
+            - configMapRef:
+                name: llm-load-test-config
           resources:
             requests:
               cpu: 100m
@@ -50,19 +50,9 @@ spec:
           volumeMounts:
             - name: shared-data
               mountPath: /shared_data
-          env:
-            - name: OUTPUT_DIR
-              value: "/shared_data/output"
-            - name: WAIT_TIME
-              value: "120"
-            - name: CONCURRENCY
-              value: "8"
-            - name: DURATION
-              value: "30"
-            - name: STREAMING
-              value: "true"
-            - name: ENDPOINT
-              value: "/v1/chat/completions"
+          envFrom:
+            - configMapRef:
+                name: llm-load-test-config
           resources:
             requests:
               cpu: 200m
