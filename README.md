@@ -52,6 +52,7 @@ Each prefix expands to 5 metrics with suffixes: `_mean_ms`, `_p80_ms`, `_p90_ms`
 
 1. Set the target namespace in `base/kustomization.yaml`
 2. Adjust environment variables in `base/files/llm-load-test-config.env` as needed:
+   - `DATASET_PATH` — path to the dataset file (default: `/app/datasets/dataset.jsonl`)
    - `WAIT_TIME` — seconds between load test runs (default: `120`)
    - `CONCURRENCY` — number of concurrent users (default: `8`)
    - `DURATION` — duration of each load test in seconds (default: `30`)
