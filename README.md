@@ -51,7 +51,7 @@ Each prefix expands to 5 metrics with suffixes: `_mean_ms`, `_p80_ms`, `_p90_ms`
 ## Deploying to OpenShift
 
 1. Set the target namespace in `base/kustomization.yaml`
-2. Adjust environment variables in `base/deployment.yaml` as needed:
+2. Adjust environment variables in `base/files/llm-load-test-config.env` as needed:
    - `WAIT_TIME` — seconds between load test runs (default: `120`)
    - `CONCURRENCY` — number of concurrent users (default: `8`)
    - `DURATION` — duration of each load test in seconds (default: `30`)
@@ -62,6 +62,8 @@ Each prefix expands to 5 metrics with suffixes: `_mean_ms`, `_p80_ms`, `_p90_ms`
 ```bash
 oc apply -k base/
 ```
+
+**Note:** Configuration is managed via Kustomize's `configMapGenerator`. Editing `llm-load-test-config.env` and redeploying will automatically trigger a rollout with the new configuration.
 
 ## Building Container Images
 
@@ -89,6 +91,7 @@ llm-load-test-exporter/
 │   ├── clusterrolebinding.yaml
 │   ├── servicemonitor.yaml
 │   ├── files/
+│   │   ├── llm-load-test-config.env
 │   │   └── uwl_metrics_list.yaml
 │   └── kustomization.yaml
 ├── exporter/              # Prometheus metrics exporter (Flask + gunicorn)
